@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SalesFlow Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#020817;color:#f1f5f9;font-family:'DM Sans',sans-serif;min-height:100vh;display:flex}
+  ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:#0f172a} ::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+
+  /* Sidebar */
+  #sidebar{width:220px;min-height:100vh;background:#0a1628;border-right:1px solid #1e293b;display:flex;flex-direction:column;padding:24px 0;position:fixed;top:0;left:0;bottom:0;z-index:100}
+  .logo-area{padding:0 24px 20px}
+  .logo-tag{color:#3b82f6;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-bottom:4px}
+  .logo-title{color:#f8fafc;font-size:20px;font-weight:800;line-height:1.2}
+  .live-badge{margin:0 16px 16px;background:#0d2a1a;border:1px solid #10b98133;border-radius:8px;padding:7px 12px;display:flex;align-items:center;gap:8px}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  .live-text{color:#10b981;font-size:11px;font-weight:700}
+  nav{flex:1}
+  .nav-btn{display:flex;align-items:center;gap:12px;width:100%;padding:12px 24px;background:none;color:#64748b;border:none;border-left:3px solid transparent;cursor:pointer;font-size:13px;font-weight:600;text-align:left;transition:all .15s;font-family:'DM Sans',sans-serif}
+  .nav-btn.active{background:#1e3a5f;color:#60a5fa;border-left-color:#3b82f6}
+  .nav-btn:hover:not(.active){color:#94a3b8;background:#0f172a}
+  .sidebar-footer{padding:20px 24px 0;border-top:1px solid #1e293b}
+  .sidebar-footer .meta{color:#64748b;font-size:11px;margin-bottom:4px}
+  .sidebar-footer .name{color:#f1f5f9;font-size:13px;font-weight:700}
+  .sidebar-footer .role{color:#3b82f6;font-size:11px}
+
+  /* Main */
+  #main{margin-left:220px;padding:32px 36px;flex:1;min-height:100vh}
+  .page{display:none} .page.active{display:block}
+  h1{font-size:26px;font-weight:800;margin-bottom:4px}
+  .subtitle{color:#64748b;font-size:13px;margin-bottom:28px}
+
+  /* Cards */
+  .stat-grid{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+  .stat-card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:22px 24px;flex:1;min-width:160px;display:flex;justify-content:space-between;align-items:flex-start}
+  .stat-label{color:#64748b;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+  .stat-value{color:#f8fafc;font-size:28px;font-weight:800}
+  .stat-sub{font-size:12px;margin-top:4px;font-weight:600}
+  .stat-icon{border-radius:10px;padding:10px;font-size:20px}
+
+  /* Charts */
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+  .chart-box{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:24px}
+  .chart-title{color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
+
+  /* Table */
+  .table-wrap{background:#0f172a;border:1px solid #1e293b;border-radius:14px;overflow:hidden;margin-top:0}
+  table{width:100%;border-collapse:collapse}
+  thead tr{background:#0a1628;border-bottom:1px solid #1e293b}
+  th{color:#475569;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:12px 14px}
+  tbody tr{border-bottom:1px solid #1e293b;transition:background .1s}
+  tbody tr:hover{background:#1e293b22}
+  td{padding:12px 14px;font-size:13px}
+  .empty-row td{text-align:center;color:#475569;padding:40px}
+
+  /* Badges */
+  .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700}
+
+  /* Filters */
+  .filters{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+  .filters input,.filters select{background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;padding:9px 14px;font-size:13px;outline:none;font-family:'DM Sans',sans-serif}
+  .filters input{width:220px}
+  .filters input::placeholder{color:#475569}
+
+  /* Buttons */
+  .btn-primary{background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:700;font-size:13px;font-family:'DM Sans',sans-serif}
+  .btn-primary:hover{background:#2563eb}
+  .btn-edit{background:#1e3a5f;color:#60a5fa;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:6px;font-family:'DM Sans',sans-serif}
+  .btn-del{background:#3b1a1a;color:#f87171;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;font-family:'DM Sans',sans-serif}
+  .page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px}
+
+  /* Modal */
+  #modal-overlay{display:none;position:fixed;inset:0;background:#00000088;z-index:999;align-items:center;justify-content:center}
+  #modal-overlay.open{display:flex}
+  #modal-box{background:#1e293b;border:1px solid #334155;border-radius:18px;padding:32px;width:480px;max-width:95vw}
+  #modal-box h2{color:#f8fafc;font-size:18px;font-weight:800;margin-bottom:24px}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .form-group{display:flex;flex-direction:column}
+  .form-group.full{grid-column:1/-1}
+  label{color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px}
+  .form-group input,.form-group select,.form-group textarea{background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;padding:9px 12px;font-size:13px;outline:none;font-family:'DM Sans',sans-serif;width:100%}
+  .form-group textarea{min-height:60px;resize:vertical}
+  .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+  .btn-cancel{background:#334155;color:#94a3b8;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif}
+
+  /* Loading */
+  #loader{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
+  .spinner{width:40px;height:40px;border:3px solid #1e293b;border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Team cards */
+  .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:28px}
+  .team-card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:22px}
+  .team-avatar{width:42px;height:42px;border-radius:12px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;color:#60a5fa;font-weight:800;font-size:16px}
+  .team-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .team-mini-card{background:#0a1628;border-radius:8px;padding:10px 12px}
+  .team-mini-label{color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .team-mini-value{font-size:18px;font-weight:800;margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="logo-area">
+    <div class="logo-tag">SalesFlow</div>
+    <div class="logo-title">Sales<br>Tracker</div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    <span class="live-text">LIVE — Firebase Sync</span>
+  </div>
+  <nav>
+    <button class="nav-btn active" onclick="showTab('dashboard',this)">◈ &nbsp;Dashboard</button>
+    <button class="nav-btn" onclick="showTab('inquiries',this)">◎ &nbsp;Inquiries</button>
+    <button class="nav-btn" onclick="showTab('forecast',this)">◈ &nbsp;Forecast</button>
+    <button class="nav-btn" onclick="showTab('team',this)">◉ &nbsp;Team</button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="meta" id="record-count">0 records</div>
+    <div class="name">Management</div>
+    <div class="role">Admin View</div>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+
+  <!-- Loader -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <div style="color:#64748b;font-size:14px">Connecting to Firebase...</div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="page" id="page-dashboard">
+    <h1>Sales Overview</h1>
+    <div class="subtitle" id="dash-subtitle">Live data from Firebase</div>
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="chart-grid">
+      <div class="chart-box"><div class="chart-title">Pipeline by Stage</div><canvas id="stageChart" height="200"></canvas></div>
+      <div class="chart-box"><div class="chart-title">Revenue Forecast vs Target</div><canvas id="forecastChart" height="200"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Recent Deals</div>
+      <div class="table-wrap" style="border:none;border-radius:0;margin-top:12px">
+        <table><thead><tr><th>Company</th><th>Assignee</th><th>Value</th><th>Stage</th><th>Priority</th></tr></thead>
+        <tbody id="recent-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inquiries -->
+  <div class="page" id="page-inquiries">
+    <div class="page-header">
+      <div><h1>Inquiries & Deals</h1><div class="subtitle" id="inq-subtitle">Loading...</div></div>
+      <button class="btn-primary" onclick="openModal()">+ New Inquiry</button>
+    </div>
+    <div class="filters">
+      <input id="search-input" placeholder="Search company or contact..." oninput="renderTable()">
+      <select id="filter-stage" onchange="renderTable()"><option value="">All Stages</option></select>
+      <select id="filter-assignee" onchange="renderTable()"><option value="">All Team</option></select>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Company</th><th>Contact</th><th>Value</th><th>Assignee</th><th>Stage</th><th>Priority</th><th>Date</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="inq-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- Forecast -->
+  <div class="page" id="page-forecast">
+    <h1>Sales Forecast</h1>
+    <div class="subtitle">Pipeline vs closed vs target — 2026</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div><div class="stat-label">May Pipeline</div><div class="stat-value">$74k</div><div class="stat-sub" style="color:#3b82f6">Strongest month</div></div><div class="stat-icon" style="background:#3b82f618">📈</div></div>
+      <div class="stat-card"><div><div class="stat-label">May Closed</div><div class="stat-value">$48k</div><div class="stat-sub" style="color:#10b981">+7% vs target</div></div><div class="stat-icon" style="background:#10b98118">✅</div></div>
+      <div class="stat-card"><div><div class="stat-label">H1 Target</div><div class="stat-value">$245k</div><div class="stat-sub" style="color:#f59e0b">On track</div></div><div class="stat-icon" style="background:#f59e0b18">🎯</div></div>
+      <div class="stat-card"><div><div class="stat-label">Forecast Acc.</div><div class="stat-value">91%</div><div class="stat-sub" style="color:#8b5cf6">Last 3 months</div></div><div class="stat-icon" style="background:#8b5cf618">🔮</div></div>
+    </div>
+    <div class="chart-box" style="margin-bottom:20px"><div class="chart-title">Monthly Performance</div><canvas id="monthlyChart" height="120"></canvas></div>
+    <div class="chart-box"><div class="chart-title">Stage Distribution</div><div style="display:flex;gap:32px;align-items:center;margin-top:12px"><canvas id="pieChart" width="200" height="200" style="max-width:200px"></canvas><div id="pie-legend" style="flex:1"></div></div></div>
+  </div>
+
+  <!-- Team -->
+  <div class="page" id="page-team">
+    <h1>Team Performance</h1>
+    <div class="subtitle">Individual breakdowns — live from Firebase</div>
+    <div class="team-grid" id="team-grid"></div>
+    <div class="chart-box"><div class="chart-title">Team Pipeline Comparison</div><canvas id="teamChart" height="100"></canvas></div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h2 id="modal-title">New Inquiry</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Company</label><input id="f-company"></div>
+      <div class="form-group"><label>Contact</label><input id="f-contact"></div>
+      <div class="form-group"><label>Deal Value ($)</label><input id="f-value" type="number"></div>
+      <div class="form-group"><label>Date</label><input id="f-date" type="date"></div>
+      <div class="form-group"><label>Assignee</label><select id="f-assignee"></select></div>
+      <div class="form-group"><label>Stage</label><select id="f-stage"></select></div>
+      <div class="form-group"><label>Priority</label><select id="f-priority"><option>Low</option><option selected>Medium</option><option>High</option></select></div>
+      <div class="form-group full"><label>Notes</label><textarea id="f-notes"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="save-btn" onclick="saveInquiry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Firebase Setup ───────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBWSSC0vRTYuB8V79qNTtABGGzQFC7bORk",
+  authDomain: "amet-325a4.firebaseapp.com",
+  projectId: "amet-325a4",
+  storageBucket: "amet-325a4.firebasestorage.app",
+  messagingSenderId: "442333359832",
+  appId: "1:442333359832:web:a36b25ff2c349000e2f1ad"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── Constants ────────────────────────────────────────────────────────────────
+const TEAM = ["Alice Chen","Ben Marsh","Carla Torres","David Kim","Emma Ford"];
+const STAGES = ["New","Qualified","Proposal","Negotiation","Closed Won","Closed Lost"];
+const STAGE_COLORS = {New:"#64748b",Qualified:"#3b82f6",Proposal:"#f59e0b",Negotiation:"#8b5cf6","Closed Won":"#10b981","Closed Lost":"#ef4444"};
+const PRIORITY_COLORS = {Low:"#64748b",Medium:"#f59e0b",High:"#ef4444"};
+const FORECAST = [
+  {m:"Jan",p:45000,c:28000,t:35000},{m:"Feb",p:52000,c:31000,t:35000},
+  {m:"Mar",p:61000,c:42000,t:40000},{m:"Apr",p:58000,c:38000,t:40000},
+  {m:"May",p:74000,c:48000,t:45000},{m:"Jun",p:82000,c:0,t:50000}
+];
+const fmt = n => n >= 1000 ? `$${(n/1000).toFixed(1)}k` : `$${n}`;
+
+let inquiries = [];
+let editId = null;
+let charts = {};
+
+// ── Populate selects ─────────────────────────────────────────────────────────
+const fAssignee = document.getElementById('f-assignee');
+const fStage = document.getElementById('f-stage');
+const filterStage = document.getElementById('filter-stage');
+const filterAssignee = document.getElementById('filter-assignee');
+TEAM.forEach(t => {
+  fAssignee.innerHTML += `<option>${t}</option>`;
+  filterAssignee.innerHTML += `<option value="${t}">${t}</option>`;
+});
+STAGES.forEach(s => {
+  fStage.innerHTML += `<option>${s}</option>`;
+  filterStage.innerHTML += `<option value="${s}">${s}</option>`;
+});
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+function showTab(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'forecast') renderForecastCharts();
+  if (id === 'team') renderTeam();
+}
+
+// ── Real-time Firestore ──────────────────────────────────────────────────────
+db.collection('inquiries').orderBy('createdAt','desc').onSnapshot(snap => {
+  inquiries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  document.getElementById('loader').style.display = 'none';
+  document.querySelectorAll('.page').forEach(p => { if (p.id === 'page-dashboard') p.classList.add('active'); });
+  document.getElementById('record-count').textContent = inquiries.length + ' records';
+  renderDashboard();
+  renderTable();
+  if (document.getElementById('page-team').classList.contains('active')) renderTeam();
+  if (document.getElementById('page-forecast').classList.contains('active')) renderForecastCharts();
+}, err => {
+  document.getElementById('loader').innerHTML = `<div style="color:#ef4444;font-size:14px">⚠️ Firebase error: ${err.message}<br><small style="color:#64748b">Check Firestore rules — enable test mode</small></div>`;
+});
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const active = inquiries.filter(i => !i.stage?.startsWith('Closed'));
+  const won = inquiries.filter(i => i.stage === 'Closed Won');
+  const closed = inquiries.filter(i => i.stage?.startsWith('Closed'));
+  const pipeline = active.reduce((s,i) => s + Number(i.value||0), 0);
+  const wonVal = won.reduce((s,i) => s + Number(i.value||0), 0);
+  const winRate = closed.length ? Math.round(won.length/closed.length*100) : 0;
+
+  document.getElementById('dash-subtitle').textContent = `Live data · ${inquiries.length} records`;
+  document.getElementById('stat-grid').innerHTML = [
+    ['Pipeline Value', fmt(pipeline), 'Active deals', '#3b82f6', '💰'],
+    ['Won Revenue', fmt(wonVal), 'Closed won', '#10b981', '✅'],
+    ['Active Deals', active.length, 'In progress', '#f59e0b', '📋'],
+    ['Win Rate', winRate+'%', 'Of closed deals', '#8b5cf6', '🏆'],
+  ].map(([l,v,s,c,i]) => `
+    <div class="stat-card"><div>
+      <div class="stat-label">${l}</div>
+      <div class="stat-value">${v}</div>
+      <div class="stat-sub" style="color:${c}">${s}</div>
+    </div><div class="stat-icon" style="background:${c}18">${i}</div></div>
+  `).join('');
+
+  // Stage bar chart
+  const stageData = STAGES.map(s => ({
+    s, v: inquiries.filter(i=>i.stage===s).reduce((a,b)=>a+Number(b.value||0),0)
+  })).filter(x=>x.v>0);
+  if (charts.stage) charts.stage.destroy();
+  charts.stage = new Chart(document.getElementById('stageChart'), {
+    type:'bar', data:{
+      labels: stageData.map(x=>x.s),
+      datasets:[{data:stageData.map(x=>x.v), backgroundColor:stageData.map(x=>STAGE_COLORS[x.s]||'#3b82f6'), borderRadius:6}]
+    }, options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',font:{size:10}}},y:{ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+v/1000+'k'}}}}
+  });
+
+  // Forecast line chart
+  if (charts.forecast) charts.forecast.destroy();
+  charts.forecast = new Chart(document.getElementById('forecastChart'), {
+    type:'line', data:{
+      labels:FORECAST.map(f=>f.m),
+      datasets:[
+        {label:'Closed',data:FORECAST.map(f=>f.c),borderColor:'#10b981',borderWidth:2.5,tension:.4,pointRadius:4,pointBackgroundColor:'#10b981'},
+        {label:'Pipeline',data:FORECAST.map(f=>f.p),borderColor:'#3b82f6',borderWidth:2,borderDash:[5,3],tension:.4,pointRadius:0},
+        {label:'Target',data:FORECAST.map(f=>f.t),borderColor:'#f59e0b',borderWidth:1.5,borderDash:[3,3],tension:.4,pointRadius:0}
+      ]
+    }, options:{plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},scales:{x:{ticks:{color:'#64748b',font:{size:11}}},y:{ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+v/1000+'k'}}}}
+  });
+
+  // Recent table
+  document.getElementById('recent-tbody').innerHTML = inquiries.slice(0,5).map(i=>`
+    <tr>
+      <td><div style="color:#f1f5f9;font-weight:600">${i.company||''}</div><div style="color:#64748b;font-size:11px">${i.contact||''}</div></td>
+      <td style="color:#94a3b8">${(i.assignee||'').split(' ')[0]}</td>
+      <td style="color:#10b981;font-weight:700">${fmt(Number(i.value||0))}</td>
+      <td><span class="badge" style="background:${STAGE_COLORS[i.stage]||'#64748b'}22;color:${STAGE_COLORS[i.stage]||'#64748b'};border:1px solid ${STAGE_COLORS[i.stage]||'#64748b'}44">${i.stage||''}</span></td>
+      <td><span class="badge" style="background:${PRIORITY_COLORS[i.priority]||'#64748b'}22;color:${PRIORITY_COLORS[i.priority]||'#64748b'};border:1px solid ${PRIORITY_COLORS[i.priority]||'#64748b'}44">${i.priority||''}</span></td>
+    </tr>
+  `).join('') || '<tr class="empty-row"><td colspan="5">No deals yet — add your first inquiry!</td></tr>';
+}
+
+// ── Inquiries Table ──────────────────────────────────────────────────────────
+function renderTable() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const stage = document.getElementById('filter-stage').value;
+  const assignee = document.getElementById('filter-assignee').value;
+  const filtered = inquiries.filter(i =>
+    (!stage || i.stage === stage) &&
+    (!assignee || i.assignee === assignee) &&
+    ((i.company||'').toLowerCase().includes(search) || (i.contact||'').toLowerCase().includes(search))
+  );
+  document.getElementById('inq-subtitle').textContent = `${filtered.length} records · synced live`;
+  document.getElementById('inq-tbody').innerHTML = filtered.map((i,idx)=>`
+    <tr style="background:${idx%2===0?'#0f172a':'#0a1628'}">
+      <td style="color:#f1f5f9;font-weight:700">${i.company||''}</td>
+      <td style="color:#94a3b8">${i.contact||''}</td>
+      <td style="color:#10b981;font-weight:700">${fmt(Number(i.value||0))}</td>
+      <td style="color:#94a3b8">${(i.assignee||'').split(' ')[0]}</td>
+      <td><span class="badge" style="background:${STAGE_COLORS[i.stage]||'#64748b'}22;color:${STAGE_COLORS[i.stage]||'#64748b'};border:1px solid ${STAGE_COLORS[i.stage]||'#64748b'}44">${i.stage||''}</span></td>
+      <td><span class="badge" style="background:${PRIORITY_COLORS[i.priority]||'#64748b'}22;color:${PRIORITY_COLORS[i.priority]||'#64748b'};border:1px solid ${PRIORITY_COLORS[i.priority]||'#64748b'}44">${i.priority||''}</span></td>
+      <td style="color:#64748b;font-size:12px">${i.date||''}</td>
+      <td style="color:#64748b;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.notes||''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-edit" onclick="openModal('${i.id}')">Edit</button>
+        <button class="btn-del" onclick="delInquiry('${i.id}')">Del</button>
+      </td>
+    </tr>
+  `).join('') || '<tr class="empty-row"><td colspan="9">No inquiries found</td></tr>';
+}
+
+// ── Forecast Charts ──────────────────────────────────────────────────────────
+function renderForecastCharts() {
+  if (charts.monthly) charts.monthly.destroy();
+  charts.monthly = new Chart(document.getElementById('monthlyChart'), {
+    type:'bar', data:{
+      labels:FORECAST.map(f=>f.m),
+      datasets:[
+        {label:'Pipeline',data:FORECAST.map(f=>f.p),backgroundColor:'#3b82f633',borderColor:'#3b82f6',borderWidth:1.5,borderRadius:4},
+        {label:'Closed',data:FORECAST.map(f=>f.c),backgroundColor:'#10b981',borderRadius:4},
+        {label:'Target',data:FORECAST.map(f=>f.t),backgroundColor:'#f59e0b44',borderColor:'#f59e0b',borderWidth:1.5,borderRadius:4}
+      ]
+    }, options:{plugins:{legend:{labels:{color:'#94a3b8',font:{size:12}}}},scales:{x:{ticks:{color:'#64748b'}},y:{ticks:{color:'#64748b',callback:v=>'$'+v/1000+'k'}}}}
+  });
+
+  const stageData = STAGES.map(s=>({s,v:inquiries.filter(i=>i.stage===s).reduce((a,b)=>a+Number(b.value||0),0)})).filter(x=>x.v>0);
+  if (charts.pie) charts.pie.destroy();
+  charts.pie = new Chart(document.getElementById('pieChart'), {
+    type:'doughnut', data:{
+      labels:stageData.map(x=>x.s),
+      datasets:[{data:stageData.map(x=>x.v),backgroundColor:stageData.map(x=>STAGE_COLORS[x.s]),borderWidth:0}]
+    }, options:{plugins:{legend:{display:false}},cutout:'55%'}
+  });
+  document.getElementById('pie-legend').innerHTML = stageData.map(x=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e293b">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:10px;height:10px;border-radius:3px;background:${STAGE_COLORS[x.s]}"></div>
+        <span style="color:#94a3b8;font-size:13px">${x.s}</span>
+      </div>
+      <span style="color:#f1f5f9;font-weight:700;font-size:13px">${fmt(x.v)}</span>
+    </div>
+  `).join('') || '<div style="color:#475569;font-size:13px">Add deals to see distribution</div>';
+}
+
+// ── Team ─────────────────────────────────────────────────────────────────────
+function renderTeam() {
+  document.getElementById('team-grid').innerHTML = TEAM.map(member=>{
+    const deals = inquiries.filter(i=>i.assignee===member);
+    const won = deals.filter(i=>i.stage==='Closed Won');
+    const active = deals.filter(i=>!i.stage?.startsWith('Closed'));
+    const pipeline = active.reduce((s,i)=>s+Number(i.value||0),0);
+    const wonVal = won.reduce((s,i)=>s+Number(i.value||0),0);
+    const closedCount = deals.filter(i=>i.stage?.startsWith('Closed')).length;
+    const rate = closedCount ? Math.round(won.length/closedCount*100) : 0;
+    return `
+      <div class="team-card">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
+          <div class="team-avatar">${member[0]}</div>
+          <div><div style="color:#f1f5f9;font-weight:700;font-size:14px">${member}</div>
+          <div style="color:#64748b;font-size:11px">Sales Rep · ${deals.length} deals</div></div>
+        </div>
+        <div class="team-mini-grid">
+          <div class="team-mini-card"><div class="team-mini-label">Active</div><div class="team-mini-value" style="color:#3b82f6">${active.length}</div></div>
+          <div class="team-mini-card"><div class="team-mini-label">Win Rate</div><div class="team-mini-value" style="color:#10b981">${rate}%</div></div>
+          <div class="team-mini-card"><div class="team-mini-label">Pipeline</div><div class="team-mini-value" style="color:#f59e0b">${fmt(pipeline)}</div></div>
+          <div class="team-mini-card"><div class="team-mini-label">Won</div><div class="team-mini-value" style="color:#8b5cf6">${fmt(wonVal)}</div></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const teamData = TEAM.map(t=>({name:t.split(' ')[0],value:inquiries.filter(i=>i.assignee===t).reduce((a,b)=>a+Number(b.value||0),0)}));
+  if (charts.team) charts.team.destroy();
+  charts.team = new Chart(document.getElementById('teamChart'), {
+    type:'bar', data:{
+      labels:teamData.map(t=>t.name),
+      datasets:[{data:teamData.map(t=>t.value),backgroundColor:'#3b82f6',borderRadius:6}]
+    }, options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'}},y:{ticks:{color:'#64748b',callback:v=>'$'+v/1000+'k'}}}}
+  });
+}
+
+// ── Modal ────────────────────────────────────────────────────────────────────
+function openModal(id) {
+  editId = id || null;
+  document.getElementById('modal-title').textContent = id ? 'Edit Inquiry' : 'New Inquiry';
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  if (id) {
+    const i = inquiries.find(x=>x.id===id);
+    if (i) {
+      document.getElementById('f-company').value = i.company||'';
+      document.getElementById('f-contact').value = i.contact||'';
+      document.getElementById('f-value').value = i.value||'';
+      document.getElementById('f-date').value = i.date||'';
+      document.getElementById('f-assignee').value = i.assignee||TEAM[0];
+      document.getElementById('f-stage').value = i.stage||'New';
+      document.getElementById('f-priority').value = i.priority||'Medium';
+      document.getElementById('f-notes').value = i.notes||'';
+    }
+  } else {
+    ['f-company','f-contact','f-value','f-notes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-assignee').value = TEAM[0];
+    document.getElementById('f-stage').value = 'New';
+    document.getElementById('f-priority').value = 'Medium';
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); editId=null; }
+
+async function saveInquiry() {
+  const btn = document.getElementById('save-btn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  const data = {
+    company: document.getElementById('f-company').value,
+    contact: document.getElementById('f-contact').value,
+    value: Number(document.getElementById('f-value').value)||0,
+    date: document.getElementById('f-date').value,
+    assignee: document.getElementById('f-assignee').value,
+    stage: document.getElementById('f-stage').value,
+    priority: document.getElementById('f-priority').value,
+    notes: document.getElementById('f-notes').value,
+  };
+  try {
+    if (editId) {
+      await db.collection('inquiries').doc(editId).update({...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    } else {
+      await db.collection('inquiries').add({...data, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+    }
+    closeModal();
+  } catch(e) { alert('Error: ' + e.message); }
+  btn.textContent = 'Save'; btn.disabled = false;
+}
+
+async function delInquiry(id) {
+  if (!confirm('Delete this inquiry?')) return;
+  await db.collection('inquiries').doc(id).delete();
+}
+</script>
+</body>
+</html>
