@@ -205,7 +205,7 @@
     <div class="form-grid">
       <div class="form-group"><label>Company</label><input id="f-company"></div>
       <div class="form-group"><label>Contact</label><input id="f-contact"></div>
-      <div class="form-group"><label>Deal Value ($)</label><input id="f-value" type="number"></div>
+      <div class="form-group"><label>Deal Value (AED)</label><input id="f-value" type="number"></div>
       <div class="form-group"><label>Date</label><input id="f-date" type="date"></div>
       <div class="form-group"><label>Assignee</label><select id="f-assignee"></select></div>
       <div class="form-group"><label>Stage</label><select id="f-stage"></select></div>
@@ -242,7 +242,7 @@ const FORECAST = [
   {m:"Mar",p:61000,c:42000,t:40000},{m:"Apr",p:58000,c:38000,t:40000},
   {m:"May",p:74000,c:48000,t:45000},{m:"Jun",p:82000,c:0,t:50000}
 ];
-const fmt = n => n >= 1000 ? `$${(n/1000).toFixed(1)}k` : `$${n}`;
+const fmt = n => n >= 1000 ? `AED ${(n/1000).toFixed(1)}k` : `AED ${n}`;
 
 let inquiries = [];
 let editId = null;
