@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SalesFlow — Sales Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --blue-950:#030b1a;--blue-900:#0a1628;--blue-800:#102040;--blue-700:#1a3560;
+  --blue-600:#1d4ed8;--blue-500:#3b82f6;--blue-400:#60a5fa;--blue-300:#93c5fd;
+  --blue-200:#bfdbfe;--blue-100:#dbeafe;
+  --slate-900:#0f172a;--slate-800:#1e293b;--slate-700:#334155;--slate-600:#475569;
+  --slate-500:#64748b;--slate-400:#94a3b8;--slate-300:#cbd5e1;
+  --cyan:#06b6d4;--teal:#14b8a6;--indigo:#6366f1;--violet:#8b5cf6;
+  --emerald:#10b981;--amber:#f59e0b;--rose:#f43f5e;--orange:#f97316;
+  --text-primary:#e2e8f0;--text-secondary:#94a3b8;--text-muted:#475569;
+  --border:#1e3a5f;--surface:#0a1628;--surface2:#0d1f3c;
+  --radius:10px;--radius-lg:14px;--radius-xl:18px;
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--blue-950);color:var(--text-primary);font-family:var(--font);font-size:14px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--blue-900)}
+::-webkit-scrollbar-thumb{background:var(--blue-700);border-radius:3px}
+
+/* Layout */
+#app{display:flex;min-height:100vh}
+#sidebar{width:230px;min-height:100vh;background:linear-gradient(180deg,var(--blue-900) 0%,var(--blue-950) 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200}
+#main{margin-left:230px;flex:1;min-height:100vh;overflow-x:hidden}
+
+/* Sidebar */
+.sb-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
+.sb-brand{color:var(--blue-400);font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px}
+.sb-title{color:#fff;font-size:20px;font-weight:800;line-height:1.1;letter-spacing:-.5px}
+.sb-title span{color:var(--blue-400)}
+
+.live-pill{margin:14px 16px;background:linear-gradient(135deg,#052e16,#053a20);border:1px solid #10b98144;border-radius:20px;padding:6px 12px;display:flex;align-items:center;gap:7px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);box-shadow:0 0 8px var(--emerald);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.9)}}
+.live-label{color:var(--emerald);font-size:11px;font-weight:600}
+
+.sb-section{padding:8px 12px 4px;color:var(--text-muted);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;color:var(--text-muted);border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:var(--font);margin:1px 8px;width:calc(100% - 16px);transition:all .15s}
+.nav-btn .nb-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:transparent;transition:all .15s}
+.nav-btn:hover{color:var(--blue-300);background:var(--blue-800)}
+.nav-btn.active{color:#fff;background:linear-gradient(135deg,var(--blue-700),var(--blue-600))}
+.nav-btn.active .nb-icon{background:rgba(255,255,255,.15)}
+.nav-count{margin-left:auto;background:var(--blue-700);color:var(--blue-200);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;font-family:var(--mono)}
+
+.sb-footer{margin-top:auto;padding:16px;border-top:1px solid var(--border)}
+.sb-records{color:var(--text-muted);font-size:11px;margin-bottom:8px;font-family:var(--mono)}
+.sb-user{display:flex;align-items:center;gap:10px}
+.sb-avatar{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--blue-600),var(--indigo));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px}
+.sb-name{color:var(--text-primary);font-size:13px;font-weight:600}
+.sb-role{color:var(--blue-400);font-size:11px}
+
+/* Top bar */
+.topbar{background:var(--blue-900);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.topbar-sub{font-size:12px;color:var(--text-muted);margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+
+/* Pages */
+.page{display:none;padding:28px 32px}
+.page.active{display:block}
+
+/* Stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:linear-gradient(135deg,var(--blue-900),var(--blue-800));border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;right:0;width:80px;height:80px;border-radius:50%;opacity:.07;transform:translate(20px,-20px)}
+.stat-card.blue::before{background:var(--blue-500)}
+.stat-card.cyan::before{background:var(--cyan)}
+.stat-card.emerald::before{background:var(--emerald)}
+.stat-card.violet::before{background:var(--violet)}
+.stat-label{color:var(--text-muted);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.stat-value{font-size:28px;font-weight:800;letter-spacing:-.5px;color:#fff;font-family:var(--mono)}
+.stat-sub{font-size:11px;margin-top:6px;font-weight:500}
+.stat-icon{position:absolute;top:18px;right:18px;font-size:22px;opacity:.8}
+.stat-delta{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;margin-top:6px}
+.delta-up{background:#052e16;color:var(--emerald)}
+.delta-neutral{background:#1e1b4b;color:var(--indigo)}
+
+/* Charts */
+.chart-row{display:grid;grid-template-columns:1.2fr 1fr;gap:16px;margin-bottom:16px}
+.chart-box{background:var(--blue-900);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px}
+.chart-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.chart-title{color:var(--text-primary);font-size:13px;font-weight:600}
+.chart-sub{color:var(--text-muted);font-size:11px;margin-top:2px}
+.chart-badge{background:var(--blue-800);color:var(--blue-300);font-size:10px;font-weight:600;padding:3px 10px;border-radius:10px;font-family:var(--mono)}
+
+/* Table */
+.tbl-wrap{background:var(--blue-900);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--blue-800);border-bottom:1px solid var(--border)}
+th{color:var(--text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:12px 16px;white-space:nowrap}
+tbody tr{border-bottom:1px solid #0d1f3c;transition:background .1s}
+tbody tr:hover{background:var(--blue-800)}
+td{padding:11px 16px;font-size:13px;vertical-align:middle}
+.empty-cell{text-align:center;color:var(--text-muted);padding:48px;font-size:13px}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.prob-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--mono)}
+
+/* Buttons */
+.btn{border:none;border-radius:var(--radius);cursor:pointer;font-weight:600;font-size:13px;font-family:var(--font);transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,var(--blue-600),var(--indigo));color:#fff;padding:9px 18px}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-secondary{background:var(--blue-800);color:var(--blue-300);border:1px solid var(--border);padding:8px 14px}
+.btn-secondary:hover{background:var(--blue-700);color:var(--blue-200)}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:7px}
+.btn-ghost{background:transparent;color:var(--text-muted);padding:6px 10px}
+.btn-ghost:hover{background:var(--blue-800);color:var(--text-primary)}
+.btn-danger{background:#3b1a1a;color:#f87171;padding:4px 10px;font-size:11px;border-radius:7px}
+.btn-danger:hover{background:#4c2020}
+.btn-quote{background:linear-gradient(135deg,#052e16,#053a20);color:var(--emerald);border:1px solid #10b98133;padding:4px 10px;font-size:11px;border-radius:7px}
+.btn-quote:hover{background:#074320}
+
+/* Filters */
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.filter-row input,.filter-row select{background:var(--blue-900);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:8px 13px;font-size:13px;outline:none;font-family:var(--font)}
+.filter-row input::placeholder{color:var(--text-muted)}
+.filter-row input:focus,.filter-row select:focus{border-color:var(--blue-500)}
+.filter-row select option{background:var(--blue-900)}
+
+/* Page header */
+.page-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px}
+.page-hdr h1{font-size:22px;font-weight:700;color:#fff;letter-spacing:-.3px;margin-bottom:4px}
+.page-hdr .sub{color:var(--text-muted);font-size:13px}
+.hdr-actions{display:flex;gap:8px;align-items:center}
+
+/* Modal */
+#overlay{display:none;position:fixed;inset:0;background:#00000099;z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+#overlay.open{display:flex}
+.modal{background:linear-gradient(135deg,var(--blue-900),var(--blue-800));border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal h2{color:#fff;font-size:17px;font-weight:700;margin-bottom:6px;letter-spacing:-.3px}
+.modal-sub{color:var(--text-muted);font-size:12px;margin-bottom:22px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-group label{color:var(--text-muted);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.form-group input,.form-group select,.form-group textarea{background:var(--blue-950);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:9px 12px;font-size:13px;outline:none;font-family:var(--font);transition:border .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--blue-500)}
+.form-group select option{background:var(--blue-950)}
+.form-group textarea{min-height:70px;resize:vertical}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
+
+/* Prob bar */
+.prob-bar{height:4px;border-radius:2px;background:var(--blue-800);margin-top:6px;overflow:hidden}
+.prob-fill{height:100%;border-radius:2px;transition:width .3s}
+
+/* Pipeline funnel */
+.funnel{display:flex;flex-direction:column;gap:6px}
+.funnel-row{display:flex;align-items:center;gap:12px}
+.funnel-label{width:90px;font-size:11px;color:var(--text-muted);text-align:right;flex-shrink:0}
+.funnel-bar-wrap{flex:1;height:28px;background:var(--blue-800);border-radius:6px;overflow:hidden;position:relative}
+.funnel-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:10px;font-size:11px;font-weight:600;color:#fff;transition:width .4s}
+.funnel-val{width:70px;font-size:11px;font-family:var(--mono);color:var(--text-secondary);flex-shrink:0}
+
+/* Team member card */
+.member-card{background:var(--blue-900);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px}
+.member-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.member-avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0}
+.member-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mini-stat{background:var(--blue-950);border-radius:8px;padding:9px 11px}
+.mini-stat-label{color:var(--text-muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.mini-stat-value{font-size:17px;font-weight:800;margin-top:3px;font-family:var(--mono)}
+
+/* Forecast weighted */
+.forecast-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.prob-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.prob-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600}
+
+/* Loader */
+#loader{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px}
+.spinner{width:36px;height:36px;border:3px solid var(--blue-800);border-top-color:var(--blue-500);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+#toast{position:fixed;top:20px;right:20px;z-index:9999;padding:10px 18px;border-radius:var(--radius);font-weight:600;font-size:13px;color:#fff;display:none;box-shadow:0 8px 32px #000a;animation:slideIn .2s ease}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* Quote convert modal */
+.prob-selector{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.prob-opt{background:var(--blue-950);border:1.5px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;cursor:pointer;transition:all .15s;font-family:var(--mono);font-weight:600;font-size:14px;color:var(--text-secondary)}
+.prob-opt:hover{border-color:var(--blue-500);color:var(--blue-300)}
+.prob-opt.selected{border-color:var(--blue-500);background:var(--blue-800);color:#fff}
+
+/* Progress ring */
+.win-ring{display:flex;align-items:center;justify-content:center;margin:8px 0}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-brand">Sales Intelligence</div>
+    <div class="sb-title">Sales<span>Flow</span></div>
+  </div>
+  <div class="live-pill">
+    <div class="live-dot" id="live-dot"></div>
+    <span class="live-label" id="live-label">Connecting…</span>
+  </div>
+  <div class="sb-section">Navigation</div>
+  <button class="nav-btn active" onclick="showTab('dashboard',this)">
+    <div class="nb-icon">▦</div>Dashboard
+    <span class="nav-count" id="nc-dashboard">—</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('inquiries',this)">
+    <div class="nb-icon">◎</div>Inquiries
+    <span class="nav-count" id="nc-inquiries">—</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('quotes',this)">
+    <div class="nb-icon">📋</div>Quotations
+    <span class="nav-count" id="nc-quotes">—</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('forecast',this)">
+    <div class="nb-icon">↗</div>Forecast
+  </button>
+  <button class="nav-btn" onclick="showTab('team',this)">
+    <div class="nb-icon">◉</div>Team
+    <span class="nav-count" id="nc-team">—</span>
+  </button>
+  <div class="sb-section" style="margin-top:8px">Settings</div>
+  <button class="nav-btn" onclick="showTab('settings',this)">
+    <div class="nb-icon">⚙</div>Team Settings
+  </button>
+  <div class="sb-footer">
+    <div class="sb-records" id="sb-records">0 records</div>
+    <div class="sb-user">
+      <div class="sb-avatar">M</div>
+      <div><div class="sb-name">Management</div><div class="sb-role">Admin View</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- Loader -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <div style="color:var(--text-muted);font-size:13px">Connecting to Firebase…</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page" id="page-dashboard">
+    <div class="topbar">
+      <div><div class="topbar-title">Dashboard</div><div class="topbar-sub" id="dash-sub">Live overview</div></div>
+      <div class="topbar-right">
+        <div style="background:var(--blue-800);border:1px solid var(--border);border-radius:var(--radius);padding:6px 14px;font-size:11px;color:var(--text-muted);font-family:var(--mono)" id="dash-time"></div>
+      </div>
+    </div>
+    <div style="padding:28px 32px">
+      <div class="stat-grid" id="dash-stats"></div>
+      <div class="chart-row">
+        <div class="chart-box">
+          <div class="chart-hdr">
+            <div><div class="chart-title">Pipeline Funnel</div><div class="chart-sub">Value by stage (AED)</div></div>
+          </div>
+          <div class="funnel" id="funnel"></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-hdr">
+            <div><div class="chart-title">Win Probability Mix</div><div class="chart-sub">Quotes by probability</div></div>
+          </div>
+          <canvas id="probChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="chart-row">
+        <div class="chart-box">
+          <div class="chart-hdr">
+            <div><div class="chart-title">Monthly Revenue Trend</div><div class="chart-sub">Closed + weighted forecast (AED)</div></div>
+            <span class="chart-badge">2026</span>
+          </div>
+          <canvas id="trendChart" height="160"></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-hdr"><div><div class="chart-title">Recent Activity</div><div class="chart-sub">Latest 5 deals</div></div></div>
+          <div id="recent-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INQUIRIES -->
+  <div class="page" id="page-inquiries">
+    <div class="topbar">
+      <div><div class="topbar-title">Inquiries</div><div class="topbar-sub" id="inq-sub">All leads and opportunities</div></div>
+      <div class="topbar-right"><button class="btn btn-primary" onclick="openModal('inquiry')">+ New Inquiry</button></div>
+    </div>
+    <div style="padding:28px 32px">
+      <div class="filter-row">
+        <input id="inq-search" placeholder="Search company or contact…" oninput="renderInquiries()" style="width:220px">
+        <select id="inq-stage" onchange="renderInquiries()"><option value="">All Stages</option></select>
+        <select id="inq-assignee" onchange="renderInquiries()"><option value="">All Team</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Company</th><th>Contact</th><th>Value (AED)</th><th>Assignee</th><th>Stage</th><th>Priority</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="inq-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUOTATIONS -->
+  <div class="page" id="page-quotes">
+    <div class="topbar">
+      <div><div class="topbar-title">Quotations</div><div class="topbar-sub" id="quotes-sub">Converted from inquiries</div></div>
+      <div class="topbar-right">
+        <div style="font-size:12px;color:var(--text-muted);background:var(--blue-800);padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border)">
+          ≥60% probability reflects in Forecast
+        </div>
+      </div>
+    </div>
+    <div style="padding:28px 32px">
+      <div class="filter-row">
+        <input id="q-search" placeholder="Search…" oninput="renderQuotes()" style="width:200px">
+        <select id="q-prob" onchange="renderQuotes()"><option value="">All Probabilities</option><option>10%</option><option>20%</option><option>40%</option><option>50%</option><option>60%</option><option>75%</option><option>100%</option></select>
+        <select id="q-assignee" onchange="renderQuotes()"><option value="">All Team</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Quote #</th><th>Company</th><th>Contact</th><th>Value (AED)</th><th>Probability</th><th>Weighted (AED)</th><th>Assignee</th><th>Stage</th><th>Date</th><th>In Forecast</th><th>Actions</th></tr></thead>
+          <tbody id="q-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORECAST -->
+  <div class="page" id="page-forecast">
+    <div class="topbar">
+      <div><div class="topbar-title">Forecast</div><div class="topbar-sub">Quotes with ≥60% win probability (AED)</div></div>
+    </div>
+    <div style="padding:28px 32px">
+      <div class="stat-grid" id="forecast-stats"></div>
+      <div class="forecast-grid">
+        <div class="chart-box">
+          <div class="chart-hdr"><div><div class="chart-title">Weighted Pipeline by Month</div><div class="chart-sub">AED · ≥60% probability quotes only</div></div></div>
+          <canvas id="fcMonthChart" height="200"></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-hdr"><div><div class="chart-title">Forecast by Probability Band</div><div class="chart-sub">AED weighted value</div></div></div>
+          <canvas id="fcBandChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Quote #</th><th>Company</th><th>Value (AED)</th><th>Probability</th><th>Weighted (AED)</th><th>Assignee</th><th>Expected Close</th></tr></thead>
+          <tbody id="fc-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM -->
+  <div class="page" id="page-team">
+    <div class="topbar">
+      <div><div class="topbar-title">Team Performance</div><div class="topbar-sub">Individual breakdowns</div></div>
+    </div>
+    <div style="padding:28px 32px">
+      <div id="team-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:20px"></div>
+      <div class="chart-box">
+        <div class="chart-hdr"><div><div class="chart-title">Pipeline by Team Member (AED)</div></div></div>
+        <canvas id="teamChart" height="90"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="topbar">
+      <div><div class="topbar-title">Team Settings</div><div class="topbar-sub">Manage your sales team members</div></div>
+      <div class="topbar-right"><button class="btn btn-primary" onclick="openModal('member')">+ Add Member</button></div>
+    </div>
+    <div style="padding:28px 32px">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Deals Assigned</th><th>Actions</th></tr></thead>
+          <tbody id="members-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL -->
+<div id="overlay">
+  <div class="modal" id="modal-box">
+    <h2 id="modal-title">New Inquiry</h2>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-save" onclick="handleSave()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Firebase ──────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:"AIzaSyBWSSC0vRTYuB8V79qNTtABGGzQFC7bORk",
+  authDomain:"amet-325a4.firebaseapp.com",
+  projectId:"amet-325a4",
+  storageBucket:"amet-325a4.firebasestorage.app",
+  messagingSenderId:"442333359832",
+  appId:"1:442333359832:web:a36b25ff2c349000e2f1ad"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let inquiries=[], quotes=[], teamMembers=[], charts={}, modalMode=null, editId=null;
+
+const STAGES=["New","Qualified","Proposal","Negotiation","Closed Won","Closed Lost"];
+const PRIORITIES=["Low","Medium","High"];
+const PROBS=[10,20,40,50,60,75,100];
+const FORECAST_MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+const SC={New:"#64748b",Qualified:"#3b82f6",Proposal:"#f59e0b",Negotiation:"#8b5cf6","Closed Won":"#10b981","Closed Lost":"#ef4444"};
+const PC={Low:"#64748b",Medium:"#f59e0b",High:"#ef4444"};
+const PROB_COLORS={10:"#ef4444",20:"#f97316",40:"#f59e0b",50:"#eab308",60:"#84cc16",75:"#10b981",100:"#06b6d4"};
+const AVATAR_COLORS=["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#f97316","#ec4899"];
+
+const fmt = n => {
+  if(!n && n!==0) return 'AED 0';
+  if(n>=1000000) return `AED ${(n/1000000).toFixed(2)}M`;
+  if(n>=1000) return `AED ${(n/1000).toFixed(1)}K`;
+  return `AED ${Number(n).toLocaleString()}`;
+};
+const fmtShort = n => {
+  if(n>=1000000) return `${(n/1000000).toFixed(1)}M`;
+  if(n>=1000) return `${(n/1000).toFixed(0)}K`;
+  return String(n);
+};
+const badge=(label,color)=>`<span class="badge" style="background:${color}22;color:${color};border:1px solid ${color}33">${label}</span>`;
+const probBadge=p=>{const c=PROB_COLORS[p]||'#64748b';return `<span class="prob-badge" style="background:${c}22;color:${c};border:1px solid ${c}33">🎯 ${p}%</span>`;};
+
+// ── Firestore listeners ───────────────────────────────────────────────────────
+db.collection('inquiries').orderBy('createdAt','desc').onSnapshot(snap=>{
+  inquiries=snap.docs.map(d=>({id:d.id,...d.data()}));
+  onDataUpdate();
+},err=>showError(err.message));
+
+db.collection('quotes').orderBy('createdAt','desc').onSnapshot(snap=>{
+  quotes=snap.docs.map(d=>({id:d.id,...d.data()}));
+  onDataUpdate();
+},()=>{});
+
+db.collection('teamMembers').orderBy('createdAt','asc').onSnapshot(snap=>{
+  const data=snap.docs.map(d=>({id:d.id,...d.data()}));
+  if(data.length===0 && teamMembers.length===0) seedDefaultTeam();
+  else { teamMembers=data; onDataUpdate(); }
+},()=>{});
+
+async function seedDefaultTeam(){
+  const defaults=["Alice Chen","Ben Marsh","Carla Torres","David Kim","Emma Ford"];
+  for(const name of defaults){
+    await db.collection('teamMembers').add({name,role:'Sales Rep',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  }
+}
+
+function onDataUpdate(){
+  document.getElementById('loader').style.display='none';
+  document.getElementById('page-dashboard').classList.add('active');
+  document.getElementById('live-dot').style.background='#10b981';
+  document.getElementById('live-label').textContent='Firebase Live';
+  const total=inquiries.length+quotes.length;
+  document.getElementById('sb-records').textContent=`${total} total records`;
+  document.getElementById('nc-dashboard').textContent=total;
+  document.getElementById('nc-inquiries').textContent=inquiries.length;
+  document.getElementById('nc-quotes').textContent=quotes.length;
+  document.getElementById('nc-team').textContent=teamMembers.length;
+  populateSelects();
+  const active=document.querySelector('.page.active');
+  if(active){
+    const id=active.id.replace('page-','');
+    if(id==='dashboard') renderDashboard();
+    if(id==='inquiries') renderInquiries();
+    if(id==='quotes') renderQuotes();
+    if(id==='forecast') renderForecast();
+    if(id==='team') renderTeam();
+    if(id==='settings') renderSettings();
+  }
+  updateDashTime();
+}
+
+function updateDashTime(){
+  const el=document.getElementById('dash-time');
+  if(el) el.textContent=new Date().toLocaleString('en-AE',{dateStyle:'medium',timeStyle:'short'});
+}
+setInterval(updateDashTime,60000);
+
+function populateSelects(){
+  const names=teamMembers.map(m=>m.name);
+  ['inq-assignee','q-assignee'].forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const cur=el.value;
+    el.innerHTML='<option value="">All Team</option>'+names.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
+  });
+  const inqStage=document.getElementById('inq-stage');
+  if(inqStage && !inqStage.children.length>1){
+    inqStage.innerHTML='<option value="">All Stages</option>'+STAGES.map(s=>`<option>${s}</option>`).join('');
+  }
+  ['f-assignee','member-f-assignee'].forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const cur=el.value;
+    el.innerHTML=names.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
+  });
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  const renders={dashboard:renderDashboard,inquiries:renderInquiries,quotes:renderQuotes,forecast:renderForecast,team:renderTeam,settings:renderSettings};
+  if(renders[id]) renders[id]();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function renderDashboard(){
+  const active=inquiries.filter(i=>!i.stage?.startsWith('Closed'));
+  const won=inquiries.filter(i=>i.stage==='Closed Won');
+  const closed=inquiries.filter(i=>i.stage?.startsWith('Closed'));
+  const pipeline=active.reduce((s,i)=>s+Number(i.value||0),0);
+  const wonVal=won.reduce((s,i)=>s+Number(i.value||0),0);
+  const winRate=closed.length?Math.round(won.length/closed.length*100):0;
+  const forecastQ=quotes.filter(q=>Number(q.probability||0)>=60);
+  const weightedFc=forecastQ.reduce((s,q)=>s+Number(q.value||0)*Number(q.probability||0)/100,0);
+  document.getElementById('dash-sub').textContent=`${inquiries.length} inquiries · ${quotes.length} quotes · Live`;
+  document.getElementById('dash-stats').innerHTML=[
+    ['Pipeline','blue',fmt(pipeline),'Active inquiries','💰','delta-up',`+${active.length} active`],
+    ['Weighted Forecast','cyan',fmt(weightedFc),'Quotes ≥60% prob.','🔮','delta-neutral',`${forecastQ.length} quotes`],
+    ['Won Revenue','emerald',fmt(wonVal),'Closed won','✅','delta-up',`${winRate}% win rate`],
+    ['Total Quotes','violet',quotes.length,'Converted leads','📋','delta-neutral',`${forecastQ.length} in forecast`],
+  ].map(([l,cls,v,s,ico,dcls,delta])=>`
+    <div class="stat-card ${cls}">
+      <div class="stat-icon">${ico}</div>
+      <div class="stat-label">${l}</div>
+      <div class="stat-value">${v}</div>
+      <div class="stat-sub" style="color:var(--text-muted)">${s}</div>
+      <div class="stat-delta ${dcls}">${delta}</div>
+    </div>`).join('');
+
+  // Funnel
+  const stageOrder=["New","Qualified","Proposal","Negotiation","Closed Won"];
+  const maxVal=Math.max(...stageOrder.map(s=>inquiries.filter(i=>i.stage===s).reduce((a,b)=>a+Number(b.value||0),0)),1);
+  document.getElementById('funnel').innerHTML=stageOrder.map(s=>{
+    const v=inquiries.filter(i=>i.stage===s).reduce((a,b)=>a+Number(b.value||0),0);
+    const pct=Math.max((v/maxVal)*100,2);
+    return `<div class="funnel-row">
+      <div class="funnel-label">${s}</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${pct}%;background:${SC[s]}">${fmtShort(v)}</div></div>
+      <div class="funnel-val">${fmt(v)}</div>
+    </div>`;
+  }).join('');
+
+  // Prob doughnut
+  const probData=PROBS.map(p=>quotes.filter(q=>Number(q.probability)===p).reduce((a,b)=>a+Number(b.value||0),0));
+  if(charts.prob) charts.prob.destroy();
+  charts.prob=new Chart(document.getElementById('probChart'),{
+    type:'doughnut',
+    data:{labels:PROBS.map(p=>p+'%'),datasets:[{data:probData,backgroundColor:PROBS.map(p=>PROB_COLORS[p]),borderWidth:0,borderRadius:4}]},
+    options:{plugins:{legend:{labels:{color:'#94a3b8',font:{size:11},boxWidth:10}}},cutout:'55%'}
+  });
+
+  // Trend line
+  const months=["Jan","Feb","Mar","Apr","May","Jun"];
+  const closed_vals=[28000,31000,42000,38000,48000,wonVal];
+  const wfc_vals=[0,0,0,0,0,weightedFc];
+  if(charts.trend) charts.trend.destroy();
+  charts.trend=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels:months,datasets:[
+      {label:'Closed',data:closed_vals,borderColor:'#10b981',backgroundColor:'#10b98118',fill:true,borderWidth:2.5,tension:.4,pointRadius:3,pointBackgroundColor:'#10b981'},
+      {label:'Weighted Forecast',data:wfc_vals,borderColor:'#3b82f6',backgroundColor:'#3b82f618',fill:true,borderWidth:2,tension:.4,pointRadius:3,borderDash:[5,3],pointBackgroundColor:'#3b82f6'}
+    ]},
+    options:{plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},scales:{x:{ticks:{color:'#64748b'}},y:{ticks:{color:'#64748b',callback:v=>fmtShort(v)}}}}
+  });
+
+  // Recent
+  const recent=[...inquiries,...quotes].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)).slice(0,5);
+  document.getElementById('recent-list').innerHTML=recent.length?recent.map(i=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="color:var(--text-primary);font-weight:600;font-size:13px">${i.company||'—'}</div>
+        <div style="color:var(--text-muted);font-size:11px">${i.probability?`Quote · ${i.probability}%`:`Inquiry · ${i.stage||''}`}</div>
+      </div>
+      <div style="color:#10b981;font-weight:700;font-size:12px;font-family:var(--mono)">${fmt(Number(i.value||0))}</div>
+    </div>`).join(''):'<div style="color:var(--text-muted);text-align:center;padding:24px;font-size:13px">No activity yet</div>';
+}
+
+// ── Inquiries ─────────────────────────────────────────────────────────────────
+function renderInquiries(){
+  const search=document.getElementById('inq-search')?.value.toLowerCase()||'';
+  const stage=document.getElementById('inq-stage')?.value||'';
+  const assignee=document.getElementById('inq-assignee')?.value||'';
+  const f=inquiries.filter(i=>
+    (!stage||i.stage===stage)&&(!assignee||i.assignee===assignee)&&
+    ((i.company||'').toLowerCase().includes(search)||(i.contact||'').toLowerCase().includes(search))
+  );
+  document.getElementById('inq-sub').textContent=`${f.length} records · synced live`;
+  document.getElementById('inq-tbody').innerHTML=f.map((i,idx)=>`
+    <tr style="background:${idx%2===0?'transparent':'#0d1f3c18'}">
+      <td><div style="color:#fff;font-weight:600">${i.company||''}</div><div style="color:var(--text-muted);font-size:11px">${i.contact||''}</div></td>
+      <td style="color:var(--text-muted)">${i.contact||''}</td>
+      <td style="font-family:var(--mono);color:#10b981;font-weight:600">${fmt(Number(i.value||0))}</td>
+      <td style="color:var(--text-secondary)">${i.assignee||''}</td>
+      <td>${badge(i.stage||'',SC[i.stage]||'#64748b')}</td>
+      <td>${badge(i.priority||'',PC[i.priority]||'#64748b')}</td>
+      <td style="color:var(--text-muted);font-size:12px">${i.date||''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-quote" onclick="openConvertModal('${i.id}')">→ Quote</button>
+        <button class="btn btn-sm btn-secondary" style="margin:0 4px" onclick="openModal('inquiry','${i.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="delDoc('inquiries','${i.id}')">Del</button>
+      </td>
+    </tr>`).join('')||`<tr><td colspan="8" class="empty-cell">No inquiries found. Add your first one!</td></tr>`;
+}
+
+// ── Quotes ────────────────────────────────────────────────────────────────────
+function renderQuotes(){
+  const search=document.getElementById('q-search')?.value.toLowerCase()||'';
+  const prob=document.getElementById('q-prob')?.value.replace('%','')||'';
+  const assignee=document.getElementById('q-assignee')?.value||'';
+  const f=quotes.filter(q=>
+    (!prob||String(q.probability)===prob)&&(!assignee||q.assignee===assignee)&&
+    ((q.company||'').toLowerCase().includes(search)||(q.contact||'').toLowerCase().includes(search))
+  );
+  document.getElementById('quotes-sub').textContent=`${f.length} quotes · ${quotes.filter(q=>Number(q.probability)>=60).length} in forecast`;
+  document.getElementById('q-tbody').innerHTML=f.map((q,idx)=>{
+    const weighted=Math.round(Number(q.value||0)*Number(q.probability||0)/100);
+    const inFc=Number(q.probability||0)>=60;
+    return `<tr style="background:${idx%2===0?'transparent':'#0d1f3c18'}">
+      <td style="font-family:var(--mono);color:var(--blue-400);font-weight:600">${q.quoteNum||'—'}</td>
+      <td><div style="color:#fff;font-weight:600">${q.company||''}</div></td>
+      <td style="color:var(--text-muted)">${q.contact||''}</td>
+      <td style="font-family:var(--mono);color:#10b981;font-weight:600">${fmt(Number(q.value||0))}</td>
+      <td>${probBadge(q.probability)}</td>
+      <td style="font-family:var(--mono);color:var(--blue-300);font-weight:600">${fmt(weighted)}</td>
+      <td style="color:var(--text-secondary)">${q.assignee||''}</td>
+      <td>${badge(q.stage||'',SC[q.stage]||'#64748b')}</td>
+      <td style="color:var(--text-muted);font-size:12px">${q.date||''}</td>
+      <td>${inFc?'<span style="color:#10b981;font-weight:600;font-size:11px">✓ Yes</span>':'<span style="color:var(--text-muted);font-size:11px">No</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-secondary" onclick="openModal('quote','${q.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="delDoc('quotes','${q.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="11" class="empty-cell">No quotes yet. Convert an inquiry to create one.</td></tr>`;
+}
+
+// ── Forecast ──────────────────────────────────────────────────────────────────
+function renderForecast(){
+  const fcQ=quotes.filter(q=>Number(q.probability||0)>=60);
+  const totalWeighted=fcQ.reduce((s,q)=>s+Number(q.value||0)*Number(q.probability||0)/100,0);
+  const totalValue=fcQ.reduce((s,q)=>s+Number(q.value||0),0);
+  const avgProb=fcQ.length?Math.round(fcQ.reduce((s,q)=>s+Number(q.probability||0),0)/fcQ.length):0;
+  document.getElementById('forecast-stats').innerHTML=[
+    ['blue','Weighted Pipeline',fmt(totalWeighted),'≥60% probability quotes','🎯'],
+    ['cyan','Total Quote Value',fmt(totalValue),'Face value of qualifying quotes','📊'],
+    ['emerald','Qualifying Quotes',fcQ.length,'Quotes in forecast','📋'],
+    ['violet','Avg Probability',avgProb+'%','Across forecast quotes','🔮'],
+  ].map(([cls,l,v,s,ico])=>`
+    <div class="stat-card ${cls}">
+      <div class="stat-icon">${ico}</div>
+      <div class="stat-label">${l}</div>
+      <div class="stat-value">${v}</div>
+      <div class="stat-sub" style="color:var(--text-muted)">${s}</div>
+    </div>`).join('');
+
+  // Monthly weighted
+  const now=new Date();
+  const monthData=Array(6).fill(0).map((_,i)=>{
+    const m=new Date(now.getFullYear(),now.getMonth()-2+i,1);
+    return {label:m.toLocaleString('en',{month:'short'}),val:fcQ.filter(q=>q.date&&new Date(q.date).getMonth()===m.getMonth()).reduce((s,q)=>s+Number(q.value||0)*Number(q.probability||0)/100,0)};
+  });
+  if(charts.fcMonth) charts.fcMonth.destroy();
+  charts.fcMonth=new Chart(document.getElementById('fcMonthChart'),{
+    type:'bar',
+    data:{labels:monthData.map(m=>m.label),datasets:[{data:monthData.map(m=>m.val),backgroundColor:'#3b82f644',borderColor:'#3b82f6',borderWidth:1.5,borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'}},y:{ticks:{color:'#64748b',callback:v=>fmtShort(v)}}}}
+  });
+
+  // By prob band
+  const bandProbs=[60,75,100];
+  const bandVals=bandProbs.map(p=>fcQ.filter(q=>Number(q.probability)===p).reduce((s,q)=>s+Number(q.value||0)*Number(q.probability)/100,0));
+  if(charts.fcBand) charts.fcBand.destroy();
+  charts.fcBand=new Chart(document.getElementById('fcBandChart'),{
+    type:'doughnut',
+    data:{labels:bandProbs.map(p=>p+'%'),datasets:[{data:bandVals,backgroundColor:[PROB_COLORS[60],PROB_COLORS[75],PROB_COLORS[100]],borderWidth:0,borderRadius:4}]},
+    options:{plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},cutout:'50%'}
+  });
+
+  // Table
+  document.getElementById('fc-tbody').innerHTML=fcQ.map((q,idx)=>{
+    const weighted=Math.round(Number(q.value||0)*Number(q.probability||0)/100);
+    return `<tr style="background:${idx%2===0?'transparent':'#0d1f3c18'}">
+      <td style="font-family:var(--mono);color:var(--blue-400);font-weight:600">${q.quoteNum||'—'}</td>
+      <td><div style="color:#fff;font-weight:600">${q.company||''}</div></td>
+      <td style="font-family:var(--mono);color:#10b981;font-weight:600">${fmt(Number(q.value||0))}</td>
+      <td>${probBadge(q.probability)}</td>
+      <td style="font-family:var(--mono);color:var(--blue-300);font-weight:700">${fmt(weighted)}</td>
+      <td style="color:var(--text-secondary)">${q.assignee||''}</td>
+      <td style="color:var(--text-muted);font-size:12px">${q.date||''}</td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="7" class="empty-cell">No qualifying quotes yet. Convert inquiries and set ≥60% probability.</td></tr>`;
+}
+
+// ── Team ──────────────────────────────────────────────────────────────────────
+function renderTeam(){
+  const all=[...inquiries,...quotes];
+  document.getElementById('team-grid').innerHTML=teamMembers.map((m,mi)=>{
+    const mDeals=inquiries.filter(i=>i.assignee===m.name);
+    const mQuotes=quotes.filter(q=>q.assignee===m.name);
+    const won=mDeals.filter(i=>i.stage==='Closed Won');
+    const act=mDeals.filter(i=>!i.stage?.startsWith('Closed'));
+    const cl=mDeals.filter(i=>i.stage?.startsWith('Closed'));
+    const rate=cl.length?Math.round(won.length/cl.length*100):0;
+    const pipeline=act.reduce((s,i)=>s+Number(i.value||0),0);
+    const wonVal=won.reduce((s,i)=>s+Number(i.value||0),0);
+    const color=AVATAR_COLORS[mi%AVATAR_COLORS.length];
+    return `<div class="member-card">
+      <div class="member-header">
+        <div class="member-avatar" style="background:${color}">${m.name[0]}</div>
+        <div><div style="color:#fff;font-weight:700;font-size:14px">${m.name}</div><div style="color:var(--text-muted);font-size:11px">${m.role||'Sales Rep'} · ${mDeals.length} deals · ${mQuotes.length} quotes</div></div>
+      </div>
+      <div class="member-mini-grid">
+        <div class="mini-stat"><div class="mini-stat-label">Active</div><div class="mini-stat-value" style="color:var(--blue-400)">${act.length}</div></div>
+        <div class="mini-stat"><div class="mini-stat-label">Win Rate</div><div class="mini-stat-value" style="color:var(--emerald)">${rate}%</div></div>
+        <div class="mini-stat"><div class="mini-stat-label">Pipeline</div><div class="mini-stat-value" style="color:var(--amber)">${fmtShort(pipeline)}</div></div>
+        <div class="mini-stat"><div class="mini-stat-label">Won</div><div class="mini-stat-value" style="color:var(--violet)">${fmtShort(wonVal)}</div></div>
+      </div>
+    </div>`;
+  }).join('')||'<div style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:40px">No team members yet. Add from Team Settings.</div>';
+
+  const td=teamMembers.map(m=>({name:m.name.split(' ')[0],val:[...inquiries,...quotes].filter(i=>i.assignee===m.name).reduce((s,i)=>s+Number(i.value||0),0)}));
+  if(charts.team) charts.team.destroy();
+  charts.team=new Chart(document.getElementById('teamChart'),{
+    type:'bar',
+    data:{labels:td.map(t=>t.name),datasets:[{data:td.map(t=>t.val),backgroundColor:teamMembers.map((_,i)=>AVATAR_COLORS[i%AVATAR_COLORS.length]),borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'}},y:{ticks:{color:'#64748b',callback:v=>fmtShort(v)}}}}
+  });
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function renderSettings(){
+  document.getElementById('members-tbody').innerHTML=teamMembers.map((m,i)=>`
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:10px">
+        <div class="member-avatar" style="width:32px;height:32px;border-radius:8px;background:${AVATAR_COLORS[i%AVATAR_COLORS.length]};font-size:13px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">${m.name[0]}</div>
+        <span style="color:#fff;font-weight:600">${m.name}</span>
+      </div></td>
+      <td style="color:var(--text-muted)">${m.role||'Sales Rep'}</td>
+      <td style="font-family:var(--mono);color:var(--blue-300)">${[...inquiries,...quotes].filter(x=>x.assignee===m.name).length}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="delDoc('teamMembers','${m.id}')">Remove</button></td>
+    </tr>`).join('')||`<tr><td colspan="4" class="empty-cell">No team members yet.</td></tr>`;
+}
+
+// ── Modal system ──────────────────────────────────────────────────────────────
+let convertSourceId = null;
+
+function openModal(mode, id=null){
+  modalMode=mode; editId=id;
+  const existing = id ? (mode==='inquiry'?inquiries:mode==='quote'?quotes:teamMembers).find(x=>x.id===id) : null;
+  const names=teamMembers.map(m=>m.name);
+  document.getElementById('overlay').classList.add('open');
+
+  if(mode==='inquiry'){
+    document.getElementById('modal-title').textContent=id?'Edit Inquiry':'New Inquiry';
+    document.getElementById('modal-sub').textContent='Track a new lead or opportunity';
+    document.getElementById('modal-body').innerHTML=`
+      <div class="form-grid">
+        <div class="form-group"><label>Company</label><input id="f-company" value="${existing?.company||''}"></div>
+        <div class="form-group"><label>Contact Name</label><input id="f-contact" value="${existing?.contact||''}"></div>
+        <div class="form-group"><label>Deal Value (AED)</label><input id="f-value" type="number" value="${existing?.value||''}"></div>
+        <div class="form-group"><label>Date</label><input id="f-date" type="date" value="${existing?.date||new Date().toISOString().split('T')[0]}"></div>
+        <div class="form-group"><label>Assignee</label><select id="f-assignee">${names.map(n=>`<option${n===existing?.assignee?' selected':''}>${n}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Stage</label><select id="f-stage">${STAGES.map(s=>`<option${s===existing?.stage?' selected':''}>${s}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Priority</label><select id="f-priority">${PRIORITIES.map(p=>`<option${p===existing?.priority?' selected':''}>${p}</option>`).join('')}</select></div>
+        <div class="form-group full"><label>Notes</label><textarea id="f-notes">${existing?.notes||''}</textarea></div>
+      </div>`;
+  } else if(mode==='quote'){
+    document.getElementById('modal-title').textContent=id?'Edit Quotation':'New Quotation';
+    document.getElementById('modal-sub').textContent='Set win probability — ≥60% appears in Forecast';
+    const qNum=id?existing?.quoteNum:`QT-${Date.now().toString().slice(-5)}`;
+    document.getElementById('modal-body').innerHTML=`
+      <div class="form-grid">
+        <div class="form-group"><label>Quote Number</label><input id="f-quoteNum" value="${qNum||''}" readonly style="opacity:.6"></div>
+        <div class="form-group"><label>Company</label><input id="f-company" value="${existing?.company||''}"></div>
+        <div class="form-group"><label>Contact Name</label><input id="f-contact" value="${existing?.contact||''}"></div>
+        <div class="form-group"><label>Value (AED)</label><input id="f-value" type="number" value="${existing?.value||''}"></div>
+        <div class="form-group"><label>Assignee</label><select id="f-assignee">${names.map(n=>`<option${n===existing?.assignee?' selected':''}>${n}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Stage</label><select id="f-stage">${STAGES.map(s=>`<option${s===existing?.stage?' selected':''}>${s}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Expected Close Date</label><input id="f-date" type="date" value="${existing?.date||new Date().toISOString().split('T')[0]}"></div>
+        <div class="form-group full"><label>Win Probability</label>
+          <div class="prob-selector" id="prob-sel">
+            ${PROBS.map(p=>`<div class="prob-opt${Number(existing?.probability)===p?' selected':''}" onclick="selectProb(${p},this)" style="color:${PROB_COLORS[p]}">${p}%</div>`).join('')}
+          </div>
+          <input type="hidden" id="f-probability" value="${existing?.probability||''}">
+        </div>
+        <div class="form-group full"><label>Notes</label><textarea id="f-notes">${existing?.notes||''}</textarea></div>
+      </div>`;
+  } else if(mode==='member'){
+    document.getElementById('modal-title').textContent='Add Team Member';
+    document.getElementById('modal-sub').textContent='New member will appear in all assignee dropdowns';
+    document.getElementById('modal-body').innerHTML=`
+      <div class="form-grid">
+        <div class="form-group full"><label>Full Name</label><input id="f-membername" placeholder="e.g. Sarah Johnson"></div>
+        <div class="form-group full"><label>Role</label><input id="f-memberrole" placeholder="e.g. Sales Rep, Account Manager" value="Sales Rep"></div>
+      </div>`;
+  }
+}
+
+function selectProb(p, el){
+  document.querySelectorAll('.prob-opt').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('f-probability').value=p;
+}
+
+function openConvertModal(id){
+  const inq=inquiries.find(x=>x.id===id); if(!inq) return;
+  convertSourceId=id; modalMode='quote'; editId=null;
+  const names=teamMembers.map(m=>m.name);
+  const qNum=`QT-${Date.now().toString().slice(-5)}`;
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('modal-title').textContent='Convert to Quotation';
+  document.getElementById('modal-sub').textContent=`Converting: ${inq.company} — set win probability to include in forecast`;
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-grid">
+      <div class="form-group"><label>Quote Number</label><input id="f-quoteNum" value="${qNum}" readonly style="opacity:.6"></div>
+      <div class="form-group"><label>Company</label><input id="f-company" value="${inq.company||''}"></div>
+      <div class="form-group"><label>Contact</label><input id="f-contact" value="${inq.contact||''}"></div>
+      <div class="form-group"><label>Value (AED)</label><input id="f-value" type="number" value="${inq.value||''}"></div>
+      <div class="form-group"><label>Assignee</label><select id="f-assignee">${names.map(n=>`<option${n===inq.assignee?' selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Stage</label><select id="f-stage">${STAGES.map(s=>`<option${s===inq.stage?' selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Expected Close Date</label><input id="f-date" type="date" value="${inq.date||new Date().toISOString().split('T')[0]}"></div>
+      <div class="form-group full"><label>Win Probability — ≥60% will appear in Forecast</label>
+        <div class="prob-selector" id="prob-sel">
+          ${PROBS.map(p=>`<div class="prob-opt" onclick="selectProb(${p},this)" style="color:${PROB_COLORS[p]}">${p}%</div>`).join('')}
+        </div>
+        <input type="hidden" id="f-probability" value="">
+      </div>
+      <div class="form-group full"><label>Notes</label><textarea id="f-notes">${inq.notes||''}</textarea></div>
+    </div>`;
+}
+
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); modalMode=null; editId=null; convertSourceId=null; }
+
+async function handleSave(){
+  const btn=document.getElementById('modal-save');
+  btn.textContent='Saving…'; btn.disabled=true;
+  try{
+    if(modalMode==='inquiry'){
+      const data={company:v('f-company'),contact:v('f-contact'),value:Number(v('f-value'))||0,date:v('f-date'),assignee:v('f-assignee'),stage:v('f-stage'),priority:v('f-priority'),notes:v('f-notes')};
+      if(editId) await db.collection('inquiries').doc(editId).update({...data,updatedAt:ts()});
+      else await db.collection('inquiries').add({...data,createdAt:ts()});
+      showToast(editId?'Inquiry updated ✓':'Inquiry added ✓');
+    } else if(modalMode==='quote'){
+      const prob=Number(v('f-probability'));
+      if(!prob){alert('Please select a win probability.');btn.textContent='Save';btn.disabled=false;return;}
+      const data={quoteNum:v('f-quoteNum'),company:v('f-company'),contact:v('f-contact'),value:Number(v('f-value'))||0,date:v('f-date'),assignee:v('f-assignee'),stage:v('f-stage'),probability:prob,notes:v('f-notes')};
+      if(editId) await db.collection('quotes').doc(editId).update({...data,updatedAt:ts()});
+      else await db.collection('quotes').add({...data,sourceInquiryId:convertSourceId||null,createdAt:ts()});
+      showToast(editId?'Quote updated ✓':`Quote created · ${prob>=60?'✓ Added to Forecast':'Not in forecast (prob <60%)'}`,'#3b82f6');
+    } else if(modalMode==='member'){
+      const name=v('f-membername'); const role=v('f-memberrole');
+      if(!name){alert('Please enter a name.');btn.textContent='Save';btn.disabled=false;return;}
+      await db.collection('teamMembers').add({name,role,createdAt:ts()});
+      showToast(`${name} added to team ✓`);
+    }
+    closeModal();
+  } catch(e){ alert('Error: '+e.message); }
+  btn.textContent='Save'; btn.disabled=false;
+}
+
+async function delDoc(col,id){
+  if(!confirm('Delete this record?')) return;
+  await db.collection(col).doc(id).delete();
+  showToast('Deleted','#ef4444');
+}
+
+const v=id=>{const el=document.getElementById(id);return el?el.value:''};
+const ts=()=>firebase.firestore.FieldValue.serverTimestamp();
+
+function showToast(msg,color='#10b981'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=color; t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
+}
+
+function showError(msg){
+  document.getElementById('loader').innerHTML=`
+    <div style="background:#1a0a0a;border:1px solid #ef444433;border-radius:14px;padding:32px;max-width:480px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+      <div style="color:#f87171;font-size:16px;font-weight:700;margin-bottom:8px">Firebase Connection Error</div>
+      <div style="color:#94a3b8;font-size:13px;margin-bottom:16px">${msg}</div>
+      <div style="color:#64748b;font-size:12px;background:#0f172a;border-radius:8px;padding:16px;text-align:left;margin-bottom:16px">
+        <strong style="color:#f1f5f9">Fix:</strong> Firebase Console → Firestore → Rules → set:<br><br>
+        <code style="color:#10b981">allow read, write: if true;</code>
+      </div>
+      <button onclick="location.reload()" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-weight:700">Retry</button>
+    </div>`;
+  document.getElementById('live-dot').style.background='#ef4444';
+  document.getElementById('live-label').textContent='Connection Error';
+}
+</script>
+</body>
+</html>
